@@ -1,6 +1,6 @@
 # SCEWIN-GUI
 
-SCEWIN-GUI is a made to ease the pain of editing NVRAM files produced by SCEWIN / AMISCE
+SCEWIN-GUI was made to ease the pain of editing NVRAM files produced by SCEWIN / AMISCE
 
 ## Features
 
