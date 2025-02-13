@@ -14,6 +14,10 @@ SCEWIN-GUI was made to ease the pain of editing NVRAM files produced by SCEWIN /
 - Python 3.x
 - Tkinter
 
+## TODO
+A LOT - I probably cba due to spending most time studying, this is still very poorly made  
+Such as configs for SCEWIN, included presets, implement a way to change multiple entries of the same setting, to the same value, if it exists.
+
 ## How to Run
 
 1. Clone the repository.
