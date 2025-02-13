@@ -28,7 +28,7 @@ The executeable can be downloaded from also just be downloaded from [Releases](h
 
 ## Preview
 
-![preview](images/preview.png)
+![preview](preview.png)
 
 ## Acknowledgements
 
