@@ -1,5 +1,7 @@
 # SCEWIN-GUI
 
+[![Downloads](https://img.shields.io/github/downloads/eskezje/SCEWIN-GUI/total.svg)](https://github.com/eskezje/SCEWIN-GUI/releases)
+
 SCEWIN-GUI was made to ease the pain of editing NVRAM files produced by SCEWIN / AMISCE
 
 ## Features
