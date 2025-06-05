@@ -54,7 +54,7 @@ class BIOSSettingsManager:
         except Exception as e:
             print(f"Error loading theme from registry: {e}")
 
-    def _export_settings(self):
+    def _export_settings(self, include_details=False):
         """Exports the current settings to a cfg file"""
         if not self.settings:
             messagebox.showwarning("Warning", "No settings to export")
@@ -78,20 +78,34 @@ class BIOSSettingsManager:
                         if setting.active_option is not None and setting.options:
                             if 0 <= setting.active_option < len(setting.options):
                                 value_text = setting.options[setting.active_option]
+                                
+                                # For normal export, strip the bracketed prefix from values
+                                if not include_details:
+                                    # Pattern to match bracketed values like [04] at start of string
+                                    bracket_match = re.match(r'\[[\dA-F]{2}\](.*)', value_text)
+                                    if bracket_match:
+                                        value_text = bracket_match.group(1)
                             else:
-                                continue  # Skip invalid option index
+                                continue
                         elif setting.value is not None:
                             value_text = setting.value
                         else:
-                            continue  # Skip settings with no value
+                            continue
                         
-                        # Write in the requested format
-                        f.write(f'[["{setting_name}"],"{value_text}"]\n')
-                
+                        if include_details:
+                            f.write(f'[["{setting_name}", "{setting.token}", "{setting.offset}"],"{value_text}"]\n')
+                        else:
+                            f.write(f'[["{setting_name}"],"{value_text}"]\n')
+                    
             messagebox.showinfo("Success", f"Settings exported to {export_path}")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export settings: {str(e)}")
+
+    def _export_settings_exact(self):
+        """Exports the current settings to a cfg file with token and offset details"""
+        self._export_settings(include_details=True)
+
 
 
     def _save_theme_to_registry(self, theme_name: str):
@@ -116,6 +130,7 @@ class BIOSSettingsManager:
         self.file_menu.add_command(label="Save...", command=self._save_file)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Export Settings...", command=self._export_settings)
+        self.file_menu.add_command(label="Export Settings (Exact)", command=self._export_settings_exact)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.root.quit)
 
