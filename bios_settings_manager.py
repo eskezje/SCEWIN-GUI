@@ -41,6 +41,19 @@ class BIOSSettingsManager:
         self._setup_gui()
         self._apply_theme()
 
+    def _load_theme_from_registry(self):
+        """Loads the previously selected theme from the Windows registry"""
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\MyBIOSManager", 0, winreg.KEY_READ) as key:
+                theme_name, _ = winreg.QueryValueEx(key, "current_theme")
+                if theme_name in self.theme_manager.themes:
+                    self.theme_manager.current_theme = theme_name
+        except FileNotFoundError:
+            # Registry key doesn't exist yet, use default theme
+            pass
+        except Exception as e:
+            print(f"Error loading theme from registry: {e}")
+
     def _export_settings(self):
         """Exports the current settings to a cfg file"""
         if not self.settings:
