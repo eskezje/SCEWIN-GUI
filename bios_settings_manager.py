@@ -3,7 +3,6 @@ from tkinter import ttk, filedialog, messagebox, colorchooser
 import re
 from typing import List, Optional
 import winreg
-import json
 from models import BIOSSetting
 from theme_manager import ThemeManager
 
@@ -42,19 +41,45 @@ class BIOSSettingsManager:
         self._setup_gui()
         self._apply_theme()
 
-    def _load_theme_from_registry(self):
-        """
-        reads the 'current_theme' from the windows registry and loads it
-        """
+    def _export_settings(self):
+        """Exports the current settings to a cfg file"""
+        if not self.settings:
+            messagebox.showwarning("Warning", "No settings to export")
+            return
+
+        export_path = filedialog.asksaveasfilename(
+            defaultextension=".cfg",
+            filetypes=[("Config files", "*.cfg"), ("All files", "*.*")])
+
+        if not export_path:
+            return
+        
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\MyBIOSManager", 0, winreg.KEY_READ) as key:
-                theme_name, _ = winreg.QueryValueEx(key, "current_theme")
-                if theme_name in self.theme_manager.themes:
-                    self.theme_manager.current_theme = theme_name
-        except FileNotFoundError:
-            pass
+            with open(export_path, 'w') as f:
+                for setting in self.settings:
+                    # Only export settings that have been modified
+                    if setting.active_option is not None or setting.value is not None:
+                        setting_name = setting.setup_question
+                        
+                        # Get the actual value text
+                        if setting.active_option is not None and setting.options:
+                            if 0 <= setting.active_option < len(setting.options):
+                                value_text = setting.options[setting.active_option]
+                            else:
+                                continue  # Skip invalid option index
+                        elif setting.value is not None:
+                            value_text = setting.value
+                        else:
+                            continue  # Skip settings with no value
+                        
+                        # Write in the requested format
+                        f.write(f'[["{setting_name}"],"{value_text}"]\n')
+                
+            messagebox.showinfo("Success", f"Settings exported to {export_path}")
+            
         except Exception as e:
-            print(f"Error loading theme from registry: {e}")
+            messagebox.showerror("Error", f"Failed to export settings: {str(e)}")
+
 
     def _save_theme_to_registry(self, theme_name: str):
         """
@@ -76,6 +101,8 @@ class BIOSSettingsManager:
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
         self.file_menu.add_command(label="Open...", command=self._load_file)
         self.file_menu.add_command(label="Save...", command=self._save_file)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Export Settings...", command=self._export_settings)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.root.quit)
 
