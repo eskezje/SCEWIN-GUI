@@ -3,7 +3,6 @@ from tkinter import ttk, filedialog, messagebox, colorchooser
 import re
 from typing import List, Optional
 import winreg
-import json
 from models import BIOSSetting
 from theme_manager import ThemeManager
 
@@ -43,18 +42,198 @@ class BIOSSettingsManager:
         self._apply_theme()
 
     def _load_theme_from_registry(self):
-        """
-        reads the 'current_theme' from the windows registry and loads it
-        """
+        """Loads the previously selected theme from the Windows registry"""
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\MyBIOSManager", 0, winreg.KEY_READ) as key:
                 theme_name, _ = winreg.QueryValueEx(key, "current_theme")
                 if theme_name in self.theme_manager.themes:
                     self.theme_manager.current_theme = theme_name
         except FileNotFoundError:
+            # Registry key doesn't exist yet, use default theme
             pass
         except Exception as e:
             print(f"Error loading theme from registry: {e}")
+
+    def _export_settings(self, include_details=False):
+        """Exports the current settings to a cfg file"""
+        if not self.settings:
+            messagebox.showwarning("Warning", "No settings to export")
+            return
+
+        export_path = filedialog.asksaveasfilename(
+            defaultextension=".cfg",
+            filetypes=[("Config files", "*.cfg"), ("All files", "*.*")])
+
+        if not export_path:
+            return
+        
+        try:
+            with open(export_path, 'w') as f:
+                for setting in self.settings:
+                    # Only export settings that have been modified
+                    if setting.active_option is not None or setting.value is not None:
+                        setting_name = setting.setup_question
+                        
+                        # Get the actual value text
+                        if setting.active_option is not None and setting.options:
+                            if 0 <= setting.active_option < len(setting.options):
+                                value_text = setting.options[setting.active_option]
+                                
+                                # For normal export, strip the bracketed prefix from values
+                                if not include_details:
+                                    # Pattern to match bracketed values like [04] at start of string
+                                    bracket_match = re.match(r'\[[\dA-F]{2}\](.*)', value_text)
+                                    if bracket_match:
+                                        value_text = bracket_match.group(1)
+                            else:
+                                continue
+                        elif setting.value is not None:
+                            value_text = setting.value
+                        else:
+                            continue
+                        
+                        if include_details:
+                            f.write(f'[["{setting_name}", "{setting.token}", "{setting.offset}"],"{value_text}"]\n')
+                        else:
+                            f.write(f'[["{setting_name}"],"{value_text}"]\n')
+                    
+            messagebox.showinfo("Success", f"Settings exported to {export_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export settings: {str(e)}")
+
+    def _export_settings_exact(self):
+        """Exports the current settings to a cfg file with token and offset details"""
+        self._export_settings(include_details=True)
+
+    def _import_settings(self, exact_match=True):
+        """
+        Imports settings from a cfg file
+        
+        Args:
+            exact_match: If True, requires exact matches. If False, uses regex matching.
+        """
+        if not self.settings:
+            messagebox.showwarning("Warning", "No settings loaded. Please open a BIOS file first.")
+            return
+
+        import_path = filedialog.askopenfilename(
+            defaultextension=".cfg",
+            filetypes=[("Config files", "*.cfg"), ("All files", "*.*")])
+        
+        if not import_path:
+            return
+        
+        try:
+            with open(import_path, 'r') as f:
+                import_data = f.read().splitlines()
+            
+            # Parse the format: [["Setting Name"],Value"] or [["Setting Name","Token","Offset"],"Value"]
+            pattern = re.compile(r'\[\["([^"]+)"(?:, *"([^"]+)", *"([^"]+)")?],\s*"([^"]+)"\]')
+            
+            updated_count = 0
+            skipped_count = 0
+            
+            for line in import_data:
+                match = pattern.search(line.strip())
+                if not match:
+                    continue
+                    
+                setting_name = match.group(1)
+                value_text = match.group(4)
+                
+                # Find matching setting
+                if exact_match and match.group(2) and match.group(3):
+                    # When using exact matching and token/offset are provided
+                    token = match.group(2) 
+                    offset = match.group(3)
+                    setting = next((s for s in self.settings 
+                                if s.setup_question == setting_name 
+                                and s.token == token 
+                                and s.offset == offset), None)
+                else:
+                    # Find by name only
+                    setting = next((s for s in self.settings 
+                                if s.setup_question == setting_name), None)
+                    
+                    # For non-exact matching, try case-insensitive if no exact match
+                    if not exact_match and not setting:
+                        setting = next((s for s in self.settings 
+                                    if s.setup_question.lower() == setting_name.lower()), None)
+                
+                if not setting:
+                    skipped_count += 1
+                    continue
+                
+                # Try to match the value to an option
+                found_match = False
+                if setting.options:
+                    best_option_idx = -1
+                    
+                    for i, option in enumerate(setting.options):
+                        # Extract clean option text without bracketed prefix
+                        option_text = option
+                        bracket_match = re.match(r'\[[\dA-F]{2}\](.*)', option)
+                        if bracket_match:
+                            option_text = bracket_match.group(1).strip()
+                        
+                        if exact_match:
+                            # For exact matching, require perfect equality
+                            if option_text == value_text or option == value_text:
+                                best_option_idx = i
+                                break
+                        else:
+                            # For fuzzy matching:
+                            # First try exact match
+                            if option_text == value_text or option == value_text:
+                                best_option_idx = i
+                                break
+                            
+                            # Then try pattern matching - e.g., "disa" should match "Disabled"
+                            option_lower = option_text.lower()
+                            value_lower = value_text.lower()
+                            
+                            if re.search(value_lower, option_lower, re.IGNORECASE) or \
+                            re.search(f"\\b{re.escape(value_lower)}\\w*", option_lower):
+                                best_option_idx = i
+                                break
+                    
+                    if best_option_idx >= 0:
+                        setting.active_option = best_option_idx
+                        found_match = True
+                        updated_count += 1
+                    
+                # If no option match, try setting the value directly
+                if not found_match:
+                    if hasattr(setting, 'value'):
+                        setting.value = value_text
+                        setting.active_option = None
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+            
+            # Refresh the UI with updated settings
+            if updated_count > 0:
+                self._populate_settings_list(self.search_var.get())
+                messagebox.showinfo("Import Complete", 
+                                f"Successfully imported {updated_count} settings.\n"
+                                f"Skipped {skipped_count} settings.")
+            else:
+                messagebox.showwarning("Import Warning", 
+                                    f"No settings were imported.\n"
+                                    f"Skipped {skipped_count} settings.")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to import settings: {str(e)}")
+
+    def _import_settings_exact(self):
+        """Imports settings from a file, requiring exact matches"""
+        self._import_settings(exact_match=True)
+
+    def _import_settings_fuzzy(self):
+        """Imports settings from a file, using regex-based matching"""
+        self._import_settings(exact_match=False)
+
 
     def _save_theme_to_registry(self, theme_name: str):
         """
@@ -76,6 +255,12 @@ class BIOSSettingsManager:
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
         self.file_menu.add_command(label="Open...", command=self._load_file)
         self.file_menu.add_command(label="Save...", command=self._save_file)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Import Settings...", command=self._import_settings_fuzzy)
+        self.file_menu.add_command(label="Import Settings (Exact)...", command=self._import_settings_exact)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Export Settings...", command=self._export_settings)
+        self.file_menu.add_command(label="Export Settings (Exact)...", command=self._export_settings_exact)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.root.quit)
 
