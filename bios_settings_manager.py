@@ -290,6 +290,12 @@ class BIOSSettingsManager:
         self.top_frame.pack(fill=tk.X, padx=5, pady=5)
         ttk.Button(self.top_frame, text="Load File", command=self._load_file).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_frame, text="Save File", command=self._save_file).pack(side=tk.LEFT, padx=5)
+        # TOP FRAME SETTINGS EXACT
+        ttk.Button(self.top_frame, text="Export settings", command=self._export_settings).pack(side=tk.LEFT, padx=5)
+        ttk.Button(self.top_frame, text="Import settings", command=self._import_settings_fuzzy).pack(side=tk.LEFT, padx=5)
+        #TOP FRAME SETTINGS
+        ttk.Button(self.top_frame, text="Export settings (Exact)", command=self._export_settings_exact).pack(side=tk.LEFT, padx=5)
+        ttk.Button(self.top_frame, text="Import settings (Exact)", command=self._import_settings_exact).pack(side=tk.LEFT, padx=5)
 
         # SERACH FRAME
         search_frame = ttk.Frame(self.top_frame)
