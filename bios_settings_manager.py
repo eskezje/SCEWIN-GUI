@@ -6,6 +6,8 @@ import winreg
 from models import BIOSSetting
 from theme_manager import ThemeManager
 
+EXPORT_HEADER = "# ScewinGUI Export File"
+
 class BIOSSettingsManager:
     def __init__(self):
         self.root = tk.Tk()
@@ -69,6 +71,10 @@ class BIOSSettingsManager:
         
         try:
             with open(export_path, 'w') as f:
+                # write identifier for exact or standard
+                mode = 'exact' if include_details else 'standard'
+                f.write(f"{EXPORT_HEADER} [{mode}]\n")
+                
                 for setting in self.settings:
                     # Only export settings that have been modified
                     if setting.active_option is not None or setting.value is not None:
@@ -126,7 +132,22 @@ class BIOSSettingsManager:
         
         try:
             with open(import_path, 'r') as f:
-                import_data = f.read().splitlines()
+                lines = f.read().splitlines()
+            
+            if not lines or not lines[0].startswith(EXPORT_HEADER):
+                messagebox.showerror("Error", "Not a valid scewinGUI export file.")
+                return
+            
+            header_mode = 'exact' if '[exact]' in lines[0].lower else 'standard'
+            if exact_match and header_mode != 'exact':
+                messagebox.showerror("Error", "The file wasnt exported in exact mode.")
+                return
+
+            if not exact_match and header_mode != 'standard':
+                messagebox.showerror("Error", "The file wasnt exported in standard mode.")
+                return
+            
+            import_data = lines[1:]
             
             # Parse the format: [["Setting Name"],Value"] or [["Setting Name","Token","Offset"],"Value"]
             pattern = re.compile(r'\[\["([^"]+)"(?:, *"([^"]+)", *"([^"]+)")?],\s*"([^"]+)"\]')
@@ -288,12 +309,23 @@ class BIOSSettingsManager:
         # TOP FRAME
         self.top_frame = ttk.Frame(self.root)
         self.top_frame.pack(fill=tk.X, padx=5, pady=5)
+        # TOP FRAME LOAD AND SAVE
         ttk.Button(self.top_frame, text="Load File", command=self._load_file).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_frame, text="Save File", command=self._save_file).pack(side=tk.LEFT, padx=5)
-        # TOP FRAME SETTINGS EXACT
+
+        # SEPERATOR + PADDING
+        sep = ttk.Separator(self.top_frame, orient='vertical')
+        sep.pack(side=tk.LEFT, fill=tk.Y, padx=20)
+
+        # TOP FRAME SETTINGS STANDARD
         ttk.Button(self.top_frame, text="Export settings", command=self._export_settings).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_frame, text="Import settings", command=self._import_settings_fuzzy).pack(side=tk.LEFT, padx=5)
-        #TOP FRAME SETTINGS
+
+        # SEPERATOR + PADDING
+        sep2 = ttk.Separator(self.top_frame, orient='vertical')
+        sep2.pack(side=tk.LEFT, fill=tk.Y, padx=20)
+
+        # TOP FRAME SETTINGS EXACT
         ttk.Button(self.top_frame, text="Export settings (Exact)", command=self._export_settings_exact).pack(side=tk.LEFT, padx=5)
         ttk.Button(self.top_frame, text="Import settings (Exact)", command=self._import_settings_exact).pack(side=tk.LEFT, padx=5)
 
