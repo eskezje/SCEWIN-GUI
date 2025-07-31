@@ -344,7 +344,7 @@ class BIOSSettingsManager:
         # LEFT FRAME: LIST OF SETTINGS
         list_frame = ttk.Frame(self.main_frame)
         self.main_frame.add(list_frame, weight=1)
-        self.settings_list = ttk.Treeview(list_frame, columns=('value',), show='tree')
+        self.settings_list = ttk.Treeview(list_frame, columns=('value',), show='tree', selectmode='extended')
         self.settings_list.heading('#0', text='Setting')
         self.settings_list.heading('value', text='Current Value')
         self.settings_list.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
@@ -354,6 +354,12 @@ class BIOSSettingsManager:
 
         # RIGHT PANEL: DETAILS OF SELECTED SETTING
         details_frame = ttk.Frame(self.main_frame)
+        bulk_frame = ttk.LabelFrame(details_frame, text="Bulk Actions")
+        bulk_frame.pack(fill=tk.X, padx=5, pady=5)
+        self.bulk_var = tk.StringVar()
+        self.bulk_combo = ttk.Combobox(bulk_frame, textvariable=self.bulk_var)
+        self.bulk_combo.pack(side=tk.LEFT, padx=5)
+        ttk.Button(bulk_frame, text="Apply to Selected", command=self._apply_bulk_option).pack(side=tk.LEFT, padx=5)
         self.main_frame.add(details_frame, weight=2)
         self.details_text = tk.Text(details_frame, wrap=tk.WORD, height=10, state=tk.DISABLED)
         self.details_text.pack(fill=tk.X, padx=5, pady=5)
@@ -606,6 +612,8 @@ class BIOSSettingsManager:
         self.details_text.insert('1.0', final_details)
         self.details_text.config(state=tk.DISABLED)
         if setting.options:
+            clean_options = [re.sub(r'^\[[0-9A-Fa-f]{2}\]', '', opt).strip() for opt in setting.options]
+            self.bulk_combo['values'] = list(sorted(set(clean_options)))
             var = tk.StringVar(value="")
             for i, option in enumerate(setting.options):
                 rb = ttk.Radiobutton(
@@ -733,6 +741,41 @@ class BIOSSettingsManager:
             messagebox.showinfo("Success", f"File saved successfully to {save_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file: {str(e)}")
+    def _apply_bulk_option(self):
+     selected_ids = self.settings_list.selection()
+     if not selected_ids:
+         messagebox.showwarning("No Selection", "No settings selected.")
+         return
+
+     selected_value = self.bulk_var.get().strip()
+     if not selected_value:
+         messagebox.showwarning("No Value", "Please enter or select a value to apply.")
+         return
+
+     updated = 0
+     for uid in selected_ids:
+         setting = next((s for s in self.settings if s.unique_id == uid), None)
+         if not setting:
+             continue
+
+         if setting.options:
+             for i, opt in enumerate(setting.options):
+                 clean_opt = re.sub(r'^\[[0-9A-Fa-f]{2}\]', '', opt).strip()
+                 if clean_opt.lower() == selected_value.lower():
+                     setting.active_option = i
+                     updated += 1
+                     break
+         elif setting.value is not None:
+             setting.value = selected_value
+             updated += 1
+
+     if updated > 0:
+         self._populate_settings_list(self.search_var.get())
+         messagebox.showinfo("Bulk Update", f"Updated {updated} settings.")
+     else:
+         messagebox.showwarning("No Match", f"No settings matched or updated.")
+
+
 
     def run(self):
         self.root.mainloop()
