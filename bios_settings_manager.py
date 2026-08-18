@@ -138,7 +138,7 @@ class BIOSSettingsManager:
                 messagebox.showerror("Error", "Not a valid scewinGUI export file.")
                 return
             
-            header_mode = 'exact' if '[exact]' in lines[0].lower else 'standard'
+            header_mode = 'exact' if '[exact]' in lines[0].lower() else 'standard'
             if exact_match and header_mode != 'exact':
                 messagebox.showerror("Error", "The file wasnt exported in exact mode.")
                 return
