@@ -3,14 +3,18 @@ name: Building test
 on: [push, pull_request]
 jobs:
   build:
-    runs-on: macos-latest
-    steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v6
-      - name: Configure CMake
-        run: cmake -S . -B build
-      - name: Build
-        run: cmake --build build
+      strategy:
+        matrix:
+          os: [macos-latest, windows-latest, ubuntu-latest]
+
+      runs-on: ${{ matrix.os }}
+      steps:
+        - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+        - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+        - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+        - name: Check out repository code
+          uses: actions/checkout@v6
+        - name: Configure CMake
+          run: cmake -S . -B build
+        - name: Build
+          run: cmake --build build
