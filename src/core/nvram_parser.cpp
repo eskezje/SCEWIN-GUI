@@ -3,7 +3,7 @@
 #include <fstream>
 #include <stdexcept>
 
-std::vector<Setting> parse_nvram(std::string &path)
+std::vector<Setting> parse_nvram(const std::string &path)
 {
     // open file from path
     std::ifstream file(path);
@@ -13,7 +13,8 @@ std::vector<Setting> parse_nvram(std::string &path)
         throw std::runtime_error("could not open file");
     }
     std::vector<Setting> settings;
-    // parsing
+    // parsing here
+
     
     return settings;
 }
