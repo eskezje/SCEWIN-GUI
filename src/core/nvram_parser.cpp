@@ -1,4 +1,5 @@
 #include "nvram_parser.hpp"
+#include "core/setting.hpp"
 
 #include <fstream>
 #include <optional>
@@ -48,6 +49,24 @@ std::string trim(const std::string& str)
     return str.substr(first, last - first + 1);
 }
 
+void finalize_setting(std::optional<Setting>& current_setting, std::vector<Setting>& settings)
+{
+  if (!current_setting) {
+    return;
+  }
+  if (current_setting->options.size() == 1 && !current_setting->active_option) {
+    // i dont remember why i did this in my python version 
+    // checking if there is only 1 option, and then if there is no option chosen
+    current_setting->value = current_setting->options[0];
+    current_setting->options.clear();
+  }
+  // copy the completed setting to the vector of settings
+  settings.push_back(*current_setting);
+  // clear our current setting to be optional such as None
+  current_setting.reset();
+}
+
+
 } // namespace
 
 std::vector<Setting> parse_nvram(const std::string &path) {
@@ -71,6 +90,11 @@ std::vector<Setting> parse_nvram(const std::string &path) {
     // setup question 
     if (std::regex_match(line, match, patterns.setup_question)) {
       // handle the setting 
+      finalize_setting(current_setting, settings);
+
+      current_setting = Setting{};
+      current_setting->setup_question = trim(match[1].str());
+      continue;
     }
   }
 
